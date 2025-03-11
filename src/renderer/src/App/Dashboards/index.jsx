@@ -14,6 +14,9 @@ import { Button } from "@mui/material";
 import { DataContext } from "../../context/DataContext";
 import Typography from "@mui/material/Typography";
 import DashboardFilter from "../../components/Dashboards/Filter";
+import Saldo from "../../components/Dashboards/Cards/BasicCard";
+import BasicCard from "../../components/Dashboards/Cards/BasicCard";
+import PieClickNoSnap from "../../components/Dashboards/Charts/PieClickNoSnap";
 
 function Dashboards() {
   const { ativos, estrategias, operacoes } = useContext(DataContext);
@@ -24,10 +27,8 @@ function Dashboards() {
   const [dataset, setDataset] = useState(null);
   const [financialMetrics, setFinancialMetrics] = useState(null);
   const [strategiesData, setStrategiesData] = useState(null);
-  console.log("startDate", startDate);
-  console.log("endDate", endDate);
   const [selectedStrategyId, setSelectedStrategyId] = useState(null);
-
+  console.log("strategiesData", strategiesData);
   function resetDashboardState() {
     setSelectedStrategyId(null);
     setStartDate("1900-12-01");
@@ -200,7 +201,6 @@ function Dashboards() {
     ];
   }
 
-  // gera os dados para a tabela de "Desempenho por Estratégia"
   function generateStrategiesTableData(
     operacoes,
     ativos,
@@ -208,103 +208,178 @@ function Dashboards() {
     startDate,
     endDate
   ) {
-    // console.log("startDate", startDate) // 1900-12-01 00:00:00
-    // console.log("endDate", endDate) // 2025-02-14
-
     const [startDatePart, startTimePart] = startDate.split(" ");
-    const start = new Date(`${startDatePart}T${startTimePart}-03:00`); // Fri Nov 30 1900 23:53:32 GMT-0306 (Horário Padrão de Brasília)
+    const start = new Date(`${startDatePart}T${startTimePart}-03:00`);
+    const end = new Date(`${endDate}T00:00:00-03:00`);
 
-    const end = new Date(`${endDate}T00:00:00-03:00`); // Feb 14 2025 00:00:00 GMT-0300 (Horário Padrão de Brasília)
+    const ativosMap = new Map();
+    const estrategiasData = [];
 
-    const rawRows = [];
-
-    estrategias.forEach((e) => {
-      const ativo = ativos.find((a) => e.ativo_id === a.id)?.sigla;
-      const ativo_id = e.ativo_id;
-      const estrategia = e.nome;
-      const estrategia_id = e.id;
-      const gain_fin = 0;
-      const gain_qnt = 0;
-      const loss_fin = 0;
-      const loss_qnt = 0;
-      const total_fin = 0;
-      const total_qnt = 0;
-
-      rawRows.push({
-        ativo,
-        ativo_id,
-        estrategia,
-        estrategia_id,
-        gain_fin,
-        gain_qnt,
-        loss_fin,
-        loss_qnt,
-        total_fin,
-        total_qnt,
-      });
+    // Inicializa os ativos
+    ativos.forEach((a) => {
+      ativosMap.set(a.id, { id: a.id, value: 0, label: a.sigla });
     });
 
-    // Filtrar operações e ordenar por data
+    estrategias.forEach((e) => {
+      const ativo = ativos.find((a) => e.ativo_id === a.id);
+      if (ativo) {
+        estrategiasData.push({
+          id: e.id,
+          value: 0, // Será atualizado ao processar as operações
+          label: e.nome,
+          ativoId: ativo.id,
+        });
+      }
+    });
+
     operacoes
       .filter((operacao) => {
-        // const operacaoDate = new Date(`${operacao.data}T00:00:00-03:00`);
         const operacaoDate = new Date(operacao.data_hora);
         return operacaoDate >= start && operacaoDate <= end;
       })
-      .sort((a, b) => new Date(a.data) - new Date(b.data))
       .forEach((operacao) => {
-        const ativo_id = operacao?.ativo_id;
-        const estrategia_id = operacao?.estrategia_id;
-        const n_contratos = operacao?.n_contratos;
-        const resultado_pnts = operacao?.resultado_pnts;
-        const valor_contrato = ativos.find(
-          (a) => a.id === ativo_id
+        const ativoId = operacao?.ativo_id;
+        const estrategiaId = operacao?.estrategia_id;
+        const nContratos = operacao?.n_contratos;
+        const resultadoPontos = operacao?.resultado_pnts;
+        const valorContrato = ativos.find(
+          (a) => a.id === ativoId
         )?.valor_contrato;
 
-        // somar os valores de gain_fin (se resultado_pnts >= 0, somar resultado_pnts * valor_contrato *n_contratos ), gain_qnt (se resultado_pnts >= 0, somar 1),        loss_fin (se resultado_pnts < 0, somar resultado_pnts * valor_contrato *n_contratos ),        loss_qnt (se resultado_pnts < 0, somar 1),       total_fin (somar gain_fin + loss_fin), no rawRows de acordo com a estrategia,        total_qnt (somar gain_qnt + loss_qnt), no rawRows de acordo com a estrategia
-        // Calcula o valor financeiro da operação
-        const valor_operacao = resultado_pnts * valor_contrato * n_contratos;
+        const valorOperacao = resultadoPontos * valorContrato * nContratos;
 
-        // Busca o índice da estratégia no rawRows
-        const estrategiaIndex = rawRows.findIndex(
-          (row) => row.estrategia_id === estrategia_id
-        );
+        // Atualiza estratégia
+        const estrategia = estrategiasData.find((e) => e.id === estrategiaId);
+        if (estrategia) {
+          estrategia.value += Math.abs(valorOperacao);
+        }
 
-        if (estrategiaIndex !== -1) {
-          // Se a estratégia já existe no rawRows, atualiza os valores
-          const row = rawRows[estrategiaIndex];
-
-          if (resultado_pnts >= 0) {
-            row.gain_fin += valor_operacao;
-            row.gain_qnt += 1;
-          } else {
-            row.loss_fin += valor_operacao;
-            row.loss_qnt += 1;
-          }
-
-          row.total_fin = row.gain_fin + row.loss_fin;
-          row.total_qnt = row.gain_qnt + row.loss_qnt;
-        } else {
-          // Se a estratégia não existe no rawRows, cria uma nova entrada
-          rawRows.push({
-            estrategia_id, // Adiciona o ID da estratégia
-            ativo: ativos.find((a) => a.id === ativo_id)?.sigla,
-            estrategia: estrategias.find((e) => e.id === estrategia_id)?.nome,
-            gain_fin: resultado_pnts >= 0 ? valor_operacao : 0,
-            gain_qnt: resultado_pnts >= 0 ? 1 : 0,
-            loss_fin: resultado_pnts < 0 ? valor_operacao : 0,
-            loss_qnt: resultado_pnts < 0 ? 1 : 0,
-            total_fin: valor_operacao, // Inicializa como o valor da operação
-            total_qnt: 1, // Inicializa com 1 operação
-          });
+        // Atualiza ativo
+        if (ativosMap.has(ativoId)) {
+          ativosMap.get(ativoId).value += Math.abs(valorOperacao);
         }
       });
 
-    // Filtra os elementos com total_qnt > 0
-    const filteredRows = rawRows.filter((row) => row.total_qnt > 0);
+    // Remove itens com value = 0
+    const ativosData = Array.from(ativosMap.values()).filter(
+      (a) => a.value > 0
+    );
+    const estrategiasDataFiltradas = estrategiasData.filter((e) => e.value > 0);
 
-    return filteredRows;
+    // Ordena ativosData por id
+    ativosData.sort((a, b) => a.id - b.id);
+
+    // Ordena estrategiasData por ativoId
+    estrategiasDataFiltradas.sort((a, b) => a.ativoId - b.ativoId);
+
+    return { ativosData, estrategiasData: estrategiasDataFiltradas };
   }
+
+  // // gera os dados para a tabela de "Desempenho por Estratégia"
+  // function generateStrategiesTableData(
+  //   operacoes,
+  //   ativos,
+  //   estrategias,
+  //   startDate,
+  //   endDate
+  // ) {
+  //   // console.log("startDate", startDate) // 1900-12-01 00:00:00
+  //   // console.log("endDate", endDate) // 2025-02-14
+
+  //   const [startDatePart, startTimePart] = startDate.split(" ");
+  //   const start = new Date(`${startDatePart}T${startTimePart}-03:00`); // Fri Nov 30 1900 23:53:32 GMT-0306 (Horário Padrão de Brasília)
+
+  //   const end = new Date(`${endDate}T00:00:00-03:00`); // Feb 14 2025 00:00:00 GMT-0300 (Horário Padrão de Brasília)
+
+  //   const rawRows = [];
+
+  //   estrategias.forEach((e) => {
+  //     const ativo = ativos.find((a) => e.ativo_id === a.id)?.sigla;
+  //     const ativo_id = e.ativo_id;
+  //     const estrategia = e.nome;
+  //     const estrategia_id = e.id;
+  //     const gain_fin = 0;
+  //     const gain_qnt = 0;
+  //     const loss_fin = 0;
+  //     const loss_qnt = 0;
+  //     const total_fin = 0;
+  //     const total_qnt = 0;
+
+  //     rawRows.push({
+  //       ativo,
+  //       ativo_id,
+  //       estrategia,
+  //       estrategia_id,
+  //       gain_fin,
+  //       gain_qnt,
+  //       loss_fin,
+  //       loss_qnt,
+  //       total_fin,
+  //       total_qnt,
+  //     });
+  //   });
+
+  //   // Filtrar operações e ordenar por data
+  //   operacoes
+  //     .filter((operacao) => {
+  //       // const operacaoDate = new Date(`${operacao.data}T00:00:00-03:00`);
+  //       const operacaoDate = new Date(operacao.data_hora);
+  //       return operacaoDate >= start && operacaoDate <= end;
+  //     })
+  //     .sort((a, b) => new Date(a.data) - new Date(b.data))
+  //     .forEach((operacao) => {
+  //       const ativo_id = operacao?.ativo_id;
+  //       const estrategia_id = operacao?.estrategia_id;
+  //       const n_contratos = operacao?.n_contratos;
+  //       const resultado_pnts = operacao?.resultado_pnts;
+  //       const valor_contrato = ativos.find(
+  //         (a) => a.id === ativo_id
+  //       )?.valor_contrato;
+
+  //       // somar os valores de gain_fin (se resultado_pnts >= 0, somar resultado_pnts * valor_contrato *n_contratos ), gain_qnt (se resultado_pnts >= 0, somar 1),        loss_fin (se resultado_pnts < 0, somar resultado_pnts * valor_contrato *n_contratos ),        loss_qnt (se resultado_pnts < 0, somar 1),       total_fin (somar gain_fin + loss_fin), no rawRows de acordo com a estrategia,        total_qnt (somar gain_qnt + loss_qnt), no rawRows de acordo com a estrategia
+  //       // Calcula o valor financeiro da operação
+  //       const valor_operacao = resultado_pnts * valor_contrato * n_contratos;
+
+  //       // Busca o índice da estratégia no rawRows
+  //       const estrategiaIndex = rawRows.findIndex(
+  //         (row) => row.estrategia_id === estrategia_id
+  //       );
+
+  //       if (estrategiaIndex !== -1) {
+  //         // Se a estratégia já existe no rawRows, atualiza os valores
+  //         const row = rawRows[estrategiaIndex];
+
+  //         if (resultado_pnts >= 0) {
+  //           row.gain_fin += valor_operacao;
+  //           row.gain_qnt += 1;
+  //         } else {
+  //           row.loss_fin += valor_operacao;
+  //           row.loss_qnt += 1;
+  //         }
+
+  //         row.total_fin = row.gain_fin + row.loss_fin;
+  //         row.total_qnt = row.gain_qnt + row.loss_qnt;
+  //       } else {
+  //         // Se a estratégia não existe no rawRows, cria uma nova entrada
+  //         rawRows.push({
+  //           estrategia_id, // Adiciona o ID da estratégia
+  //           ativo: ativos.find((a) => a.id === ativo_id)?.sigla,
+  //           estrategia: estrategias.find((e) => e.id === estrategia_id)?.nome,
+  //           gain_fin: resultado_pnts >= 0 ? valor_operacao : 0,
+  //           gain_qnt: resultado_pnts >= 0 ? 1 : 0,
+  //           loss_fin: resultado_pnts < 0 ? valor_operacao : 0,
+  //           loss_qnt: resultado_pnts < 0 ? 1 : 0,
+  //           total_fin: valor_operacao, // Inicializa como o valor da operação
+  //           total_qnt: 1, // Inicializa com 1 operação
+  //         });
+  //       }
+  //     });
+
+  //   // Filtra os elementos com total_qnt > 0
+  //   const filteredRows = rawRows.filter((row) => row.total_qnt > 0);
+
+  //   return filteredRows;
+  // }
 
   useEffect(() => {
     if (operacoes.length > 0) {
@@ -337,6 +412,16 @@ function Dashboards() {
     }
   }, [operacoes, startDate, endDate, selectedStrategyId]);
 
+  const saldo =
+    financialMetrics?.find((item) => item?.label === "Total Financeiro")
+      ?.value || 0;
+  const ganhos =
+    financialMetrics?.find((item) => item?.label === "Total de Ganhos")
+      ?.value || 0;
+  const perdas =
+    financialMetrics?.find((item) => item?.label === "Total de Perdas")
+      ?.value || 0;
+
   return (
     <div id="dashboard-content">
       <Container>
@@ -351,24 +436,26 @@ function Dashboards() {
               exportPDF={exportPDF}
             />
             <Cards>
-              <Box style={{ gridArea: "finance" }}>
-                <FinanceResultCard dataset={financialMetrics} />
-              </Box>
-              <Box style={{ gridArea: "operations" }}>
+              {/* <BasicCard value={saldo} title={"Saldo"} /> */}
+              {/* <BasicCard value={ganhos} title={"Ganhos"} /> */}
+              {/* <BasicCard value={perdas} title={"Perdas"} /> */}
+              <PieClickNoSnap data={strategiesData} />
+
+              {/* <Box style={{ gridArea: "operations" }}>
                 <OperationsSummaryCard dataset={financialMetrics} />
-              </Box>
-              <Box style={{ gridArea: "performance" }}>
+              </Box> */}
+              {/* <Box style={{ gridArea: "performance" }}>
                 <PerformanceOverviewCard dataset={financialMetrics} />
-              </Box>
-              <Box style={{ gridArea: "strategy" }}>
+              </Box> */}
+              {/* <Box style={{ gridArea: "strategy" }}>
                 <StrategyTable
                   strategiesData={strategiesData}
                   onRowSelect={setSelectedStrategyId}
                 />
-              </Box>
+              </Box> */}
             </Cards>
-            <DailyFinancialBarChart dataset={dataset} />
-            <EquityGrowthChart dataset={dataset} />
+            {/* <DailyFinancialBarChart dataset={dataset} />
+            <EquityGrowthChart dataset={dataset} /> */}
           </Box>
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>

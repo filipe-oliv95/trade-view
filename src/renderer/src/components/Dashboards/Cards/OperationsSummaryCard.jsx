@@ -97,7 +97,7 @@ export default function OperationsSummaryCard({ dataset }) {
     >
       <CardContent sx={{ height: "100%" }}>
         <Typography gutterBottom sx={{ color: "text.secondary", fontSize: 18 }}>
-          Distribuição de Operações (Ganho x Perda)
+          % de Acerto
         </Typography>
         <Box
           display="flex"
@@ -106,7 +106,7 @@ export default function OperationsSummaryCard({ dataset }) {
           height="100%"
         >
           <WinLossPercentageChart dataset={dataset} />
-          <Box
+          {/* <Box
             sx={{
               marginLeft: "15px",
               display: "flex",
@@ -131,7 +131,7 @@ export default function OperationsSummaryCard({ dataset }) {
               description="Número total de operações."
               value={totalOperations}
             />
-          </Box>
+          </Box> */}
         </Box>
       </CardContent>
     </Card>
