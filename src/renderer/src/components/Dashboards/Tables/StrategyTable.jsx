@@ -11,19 +11,21 @@ import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { Box } from "@mui/system";
+import PieClickNoSnap from "../Charts/PieClickNoSnap";
 
-export default function StrategyTable({ strategiesData, onRowSelect }) {
+export default function StrategyTable({
+  strategiesData,
+  onRowSelect,
+  selectedStrategyId,
+}) {
   const theme = useTheme();
-
-  const [selectedRow, setSelectedRow] = React.useState(null);
-  const [selectedEstrategia, setSelectedEstrategia] = React.useState(null);
-
-  const handleRowClick = (index, row) => {
-    setSelectedEstrategia(row.estrategia);
+  const [selectedRow, setSelectedRow] = React.useState(null); // marca o index da row selecionada
+  const [selectedEstrategia, setSelectedEstrategia] = React.useState(null); // retorno: {ativo: 'WDO', ativo_id: 127, estrategia: 'B8218', estrategia_id: 12, gain_fin: 139000, …}
+  console.log("selectedEstrategia", selectedEstrategia)
+  const handleRowClick = (row) => {
     onRowSelect((prev) =>
       prev === row.estrategia_id ? null : row.estrategia_id
     );
-    setSelectedRow((prev) => (prev === index ? null : index));
   };
 
   const processRows = (rows) => {
@@ -55,6 +57,20 @@ export default function StrategyTable({ strategiesData, onRowSelect }) {
   };
 
   const rows = processRows(strategiesData);
+  
+  React.useEffect(() => {
+    let selectecEstrategiaData =
+      strategiesData.find((item) => item.estrategia_id === selectedStrategyId)
+         || null;
+    setSelectedEstrategia(selectecEstrategiaData);
+
+    // Encontrar o índice correto na tabela processada
+    const selectedRowIndex = rows.findIndex(
+      (row) => row.estrategia === selectedEstrategia?.estrategia
+    );
+
+    setSelectedRow(selectedRowIndex !== -1 ? selectedRowIndex : null);
+  }, [selectedStrategyId, rows]);
 
   return (
     <Card sx={{ minWidth: 600, borderRadius: 3, height: "100%" }}>
@@ -64,7 +80,7 @@ export default function StrategyTable({ strategiesData, onRowSelect }) {
             gutterBottom
             sx={{ color: "text.secondary", fontSize: 18 }}
           >
-            Estratégia: {selectedEstrategia}
+            Estratégia: {selectedEstrategia?.estrategia}
           </Typography>
         ) : (
           <Typography
@@ -74,13 +90,14 @@ export default function StrategyTable({ strategiesData, onRowSelect }) {
             Desempenho por Estratégia
           </Typography>
         )}
-        <div
+        <Box
           style={{
             display: "flex",
-            flexDirection: "column",
+            // flexDirection: "column",
             textAlign: "center",
           }}
         >
+          <PieClickNoSnap data={strategiesData} onRowSelect={onRowSelect} selectedEstrategiaId={selectedEstrategia?.estrategia_id || null} />
           <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
             <Table
               sx={{ minWidth: 650, tableLayout: "auto" }}
@@ -91,8 +108,8 @@ export default function StrategyTable({ strategiesData, onRowSelect }) {
                 <TableRow>
                   <TableCell>Ativo</TableCell>
                   <TableCell>Estratégia</TableCell>
-                  <TableCell align="right">Gain</TableCell>
-                  <TableCell align="right">Loss</TableCell>
+                  <TableCell align="right">Ganhos</TableCell>
+                  <TableCell align="right">Perdas</TableCell>
                   <TableCell align="right">Total</TableCell>
                 </TableRow>
               </TableHead>
@@ -116,7 +133,7 @@ export default function StrategyTable({ strategiesData, onRowSelect }) {
                     }}
                     hover={false}
                     selected={false}
-                    onClick={() => handleRowClick(index, row)}
+                    onClick={() => handleRowClick(row)}
                   >
                     <TableCell
                       component="th"
@@ -171,8 +188,8 @@ export default function StrategyTable({ strategiesData, onRowSelect }) {
                     <TableCell
                       align="right"
                       sx={{
-                       
-                        width: 50, color:
+                        width: 50,
+                        color:
                           selectedRow === null && row.total_fin >= 0
                             ? theme.palette.success.main
                             : selectedRow === null && row.total_fin < 0
@@ -182,34 +199,39 @@ export default function StrategyTable({ strategiesData, onRowSelect }) {
                                 : theme.palette.text.terciary,
                       }}
                     >
-                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
-
-                      <Box>
-
-                      <Typography>R$ {row.total_fin}</Typography>
-                      <Typography
-                        style={{
-                          color:
-                          selectedRow == null
-                          ? theme.palette.text.secondary
-                          : selectedRow === index
-                          ? ""
-                          : theme.palette.text.terciary,
-                          fontSize: "14px",
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 1,
                         }}
-                        >
-                        ({row.total_qnt}{" "}
-                        {row.total_qnt === 1 ? "operação" : "operações"})
-                      </Typography>
+                      >
+                        <Box>
+                          <Typography>R$ {row.total_fin}</Typography>
+                          <Typography
+                            style={{
+                              color:
+                                selectedRow == null
+                                  ? theme.palette.text.secondary
+                                  : selectedRow === index
+                                    ? ""
+                                    : theme.palette.text.terciary,
+                              fontSize: "14px",
+                            }}
+                          >
+                            ({row.total_qnt}{" "}
+                            {row.total_qnt === 1 ? "operação" : "operações"})
+                          </Typography>
                         </Box>
-                        </Box>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
-        </div>
+        </Box>
       </CardContent>
     </Card>
   );

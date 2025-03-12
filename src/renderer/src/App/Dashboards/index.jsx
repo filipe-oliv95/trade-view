@@ -24,8 +24,6 @@ function Dashboards() {
   const [dataset, setDataset] = useState(null);
   const [financialMetrics, setFinancialMetrics] = useState(null);
   const [strategiesData, setStrategiesData] = useState(null);
-  console.log("startDate", startDate);
-  console.log("endDate", endDate);
   const [selectedStrategyId, setSelectedStrategyId] = useState(null);
 
   function resetDashboardState() {
@@ -364,6 +362,7 @@ function Dashboards() {
                 <StrategyTable
                   strategiesData={strategiesData}
                   onRowSelect={setSelectedStrategyId}
+                  selectedStrategyId={selectedStrategyId}
                 />
               </Box>
             </Cards>
